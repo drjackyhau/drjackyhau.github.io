@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Trip AMR Warehouse Simulator (CVRP Logistics Engine)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        header h1 {
+            margin: 0 0 4px 0;
+            color: var(--primary-dark);
+            font-size: 1.8rem;
+        }
+
+        header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .instructions {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            color: #1e40af;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 550px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1100px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+        }
+
+        .map-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: #fafafa;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+
+        .workspace-panels {
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            gap: 16px;
+        }
+
+        .param-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .param-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .param-box label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .param-box input {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-success:hover { opacity: 0.9; }
+        .btn-secondary { background-color: #cbd5e1; color: var(--text-main); }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .metric-box {
+            background-color: #f1f5f9;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Inventory Table Styling */
+        .inventory-card {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .table-input {
+            width: 50px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .table-select {
+            padding: 4px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .route-log {
+            background-color: #1e293b;
+            color: #38bdf8;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            overflow-y: auto;
+            max-height: 100px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Multi-Trip AMR Warehouse Simulator</h1>
+        <p>Capacitated Vehicle Routing (CVRP) & Cycle Time Optimization Engine | Dr Jacky HAU</p>
+    </header>
+
+    <div class="instructions">
+        <span>💡 <strong>Grid Controls:</strong> Click empty space to ADD | Drag blue nodes to MOVE | Double-click to DELETE.</span>
+        <strong>Depot (0,0) is Locked.</strong>
+    </div>
+
+    <div class="grid-layout">
+        <!-- MAP PANEL -->
+        <div class="card map-card">
+            <h3 style="margin: 0 0 10px 0; align-self: flex-start;" id="item-count-title">Warehouse Map (10 Items Active)</h3>
+            <canvas id="warehouseCanvas" width="510" height="510"></canvas>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background-color: #ef4444;"></div><span>Depot (0,0)</span></div>
+                <div class="legend-item"><div class="legend-color" style="background-color: #3b82f6;"></div><span>Level 1 (Ground)</span></div>
+                <div class="legend-item"><div class="legend-color" style="background-color: #a855f7;"></div><span>Level 2 (Waist)</span></div>
+                <div class="legend-item"><div class="legend-color" style="background-color: #ec4899;"></div><span>Level 3 (Top)</span></div>
+            </div>
+        </div>
+
+        <!-- WORKSPACE PANELS -->
+        <div class="workspace-panels">
+            <!-- 1. GLOBAL SYSTEM PARAMETERS -->
+            <div class="card">
+                <h3 style="margin: 0 0 10px 0;">Warehouse & Robot Constraints</h3>
+                <div class="param-grid">
+                    <div class="param-box">
+                        <label>AMR Capacity (Max kg)</label>
+                        <input type="number" id="param-capacity" value="10" min="1" step="1" onchange="clearSolverState()">
+                    </div>
+                    <div class="param-box">
+                        <label>AMR Speed (units/sec)</label>
+                        <input type="number" id="param-speed" value="1.0" min="0.1" step="0.1" onchange="clearSolverState()">
+                    </div>
+                    <div class="param-box">
+                        <label>Turn Penalty (sec)</label>
+                        <input type="number" id="param-turn" value="2.0" min="0" step="0.5" onchange="clearSolverState()">
+                    </div>
+                    <div class="param-box">
+                        <label>Lift Penalty (sec/level)</label>
+                        <input type="number" id="param-lift" value="3.0" min="0" step="0.5" onchange="clearSolverState()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. INVENTORY CONTROL TABLE -->
+            <div class="card inventory-card">
+                <h3 style="margin: 0 0 10px 0;">Active Picking Inventory List</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item ID</th>
+                            <th>Location (X, Y)</th>
+                            <th>Unit Weight (kg)</th>
+                            <th>Storage Tier (Z)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-table-body">
+                        <!-- Dynamic rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 3. SOLVERS, PERFORMANCE, & LOGS -->
+            <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
+                <h3 style="margin: 0;">Optimization Solver Dashboard</h3>
+                <div class="btn-group">
+                    <button class="btn-primary" onclick="solveNN_CVRP()">Run Heuristic (NN + Split)</button>
+                    <button class="btn-success" onclick="solveExact_CVRP()">Run Exact Optimal Solver</button>
+                    <button class="btn-secondary" style="flex: 0.5;" onclick="resetMap()">Reset</button>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-label">Total Time</div>
+                        <div id="metric-time" class="metric-value">--</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Total Distance</div>
+                        <div id="metric-distance" class="metric-value">--</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Solver Compute</div>
+                        <div id="metric-compute" class="metric-value">--</div>
+                    </div>
+                </div>
+
+                <h4 style="margin: 4px 0 0 0;">Multi-Trip Output Log:</h4>
+                <div id="routeLog" class="route-log">Configure inventory, then click a solver...</div>
+
+                <button id="btn-animate" class="btn-primary" style="background-color: #475569;" onclick="animateCVRPRobot()" disabled>Animate Robot Multi-Loop Picking</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('warehouseCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const gridSize = 10;
+    const padding = 35;
+    const mapWidth = canvas.width - (padding * 2);
+    const mapHeight = canvas.height - (padding * 2);
+    const stepX = mapWidth / gridSize;
+    const stepY = mapHeight / gridSize;
+
+    const depot = { id: 'Depot', x: 0, y: 0, weight: 0, height: 1 };
+    
+    // Initial classic routing list (10 items configured to push capacity splits)
+    let items = [
+        { id: '1', x: 2, y: 1, weight: 3, height: 1 },
+        { id: '2', x: 1, y: 9, weight: 4, height: 3 },
+        { id: '3', x: 2, y: 5, weight: 2, height: 2 },
+        { id: '4', x: 4, y: 8, weight: 3, height: 1 },
+        { id: '5', x: 5, y: 2, weight: 5, height: 2 },
+        { id: '6', x: 6, y: 9, weight: 1, height: 3 },
+        { id: '7', x: 8, y: 1, weight: 3, height: 1 },
+        { id: '8', x: 8, y: 6, weight: 4, height: 2 },
+        { id: '9', x: 10, y: 3, weight: 2, height: 1 },
+        { id: '10', x: 10, y: 10, weight: 5, height: 3 }
+    ];
+
+    let computedTrips = []; // Array of arrays: [ [item, item], [item] ]
+    let animationFrameId = null;
+    let draggedItem = null;
+    let isDragging = false;
+
+    // Distinct loop colors to visually represent capacity return loops
+    const tripColors = ['#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6'];
+
+    function getManhattanDistance(p1, p2) {
+        return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
+    }
+
+    function toCanvasCoords(gridX, gridY) {
+        return {
+            x: padding + (gridX * stepX),
+            y: canvas.height - padding - (gridY * stepY)
+        };
+    }
+
+    function toGridCoords(canvasX, canvasY) {
+        let gridX = Math.round((canvasX - padding) / stepX);
+        let gridY = Math.round((canvas.height - padding - canvasY) / stepY);
+        return {
+            x: Math.max(0, Math.min(gridSize, gridX)),
+            y: Math.max(0, Math.min(gridSize, gridY))
+        };
+    }
+
+    // High fidelity physical performance calculation for a single trip
+    function getTripPerformance(subTrip) {
+        const speedH = parseFloat(document.getElementById('param-speed').value);
+        const turnPenalty = parseFloat(document.getElementById('param-turn').value);
+        const liftPenalty = parseFloat(document.getElementById('param-lift').value);
+
+        let time = 0;
+        let distance = 0;
+        let current = depot;
+
+        for (let i = 0; i < subTrip.length; i++) {
+            let next = subTrip[i];
+            let dx = Math.abs(next.x - current.x);
+            let dy = Math.abs(next.y - current.y);
+            let dist = dx + dy;
+            
+            distance += dist;
+            time += dist / speedH;
+
+            // Turn penalty: cornering in standard cross-corridors
+            if (dx > 0 && dy > 0) {
+                time += turnPenalty;
+            }
+
+            // Height-Tier Lifting delay
+            time += (next.height - 1) * liftPenalty;
+            
+            // Standard loading/grab speed constraint
+            time += 4; // 4 seconds standard grab overhead
+
+            current = next;
+        }
+
+        // Return to depot overhead
+        let dx = Math.abs(depot.x - current.x);
+        let dy = Math.abs(depot.y - current.y);
+        let dist = dx + dy;
+        distance += dist;
+        time += dist / speedH;
+        if (dx > 0 && dy > 0) {
+            time += turnPenalty;
+        }
+
+        return { time: time, distance: distance };
+    }
+
+    // Calculates all aggregated loops
+    function getFleetPerformance(trips) {
+        let totalTime = 0;
+        let totalDistance = 0;
+        trips.forEach(trip => {
+            let perf = getTripPerformance(trip);
+            totalTime += perf.time;
+            totalDistance += perf.distance;
+        });
+        return { time: totalTime, distance: totalDistance };
+    }
+
+    function initMap() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('item-count-title').innerText = `Warehouse Map (${items.length} Items Active)`;
+        
+        // Render aisles (grid gridlines)
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= gridSize; i++) {
+            let pStart = toCanvasCoords(i, 0);
+            let pEnd = toCanvasCoords(i, gridSize);
+            ctx.beginPath(); ctx.moveTo(pStart.x, pStart.y); ctx.lineTo(pEnd.x, pEnd.y); ctx.stroke();
+
+            pStart = toCanvasCoords(0, i); pEnd = toCanvasCoords(gridSize, i);
+            ctx.beginPath(); ctx.moveTo(pStart.x, pStart.y); ctx.lineTo(pEnd.x, pEnd.y); ctx.stroke();
+        }
+
+        // Numerical coordinate labels
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i <= gridSize; i++) {
+            let p = toCanvasCoords(i, -0.4); ctx.fillText(i, p.x, p.y);
+            p = toCanvasCoords(-0.4, i); ctx.fillText(i, p.x, p.y + 3);
+        }
+
+        // Draw picking items with Color coding according to Storage Height level
+        items.forEach(item => {
+            const pos = toCanvasCoords(item.x, item.y);
+            
+            // Height colors: L1=Blue, L2=Purple, L3=Magenta/Pink
+            let color = '#3b82f6';
+            if (item.height === 2) color = '#a855f7';
+            else if (item.height === 3) color = '#ec4899';
+
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.arc(pos.x, pos.y, 9, 0, Math.PI * 2); ctx.fill();
+
+            // Label representing sequence number
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9px Arial';
+            ctx.fillText(item.id, pos.x, pos.y + 3);
+
+            // Subtle indicator showing item weight next to the node
+            ctx.fillStyle = '#64748b';
+            ctx.font = '8px Arial';
+            ctx.fillText(`${item.weight}kg`, pos.x + 16, pos.y - 4);
+        });
+
+        // Draw static red Depot (0,0)
+        const depotPos = toCanvasCoords(depot.x, depot.y);
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath(); ctx.arc(depotPos.x, depotPos.y, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px Arial';
+        ctx.fillText("D", depotPos.x, depotPos.y + 3);
+    }
+
+    function populateInventoryTable() {
+        const tbody = document.getElementById('inventory-table-body');
+        tbody.innerHTML = '';
+        items.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>Item ${item.id}</strong></td>
+                <td>(${item.x}, ${item.y})</td>
+                <td>
+                    <input type="number" class="table-input" value="${item.weight}" min="1" step="1" 
+                           onchange="updateItemParams(${index}, 'weight', this.value)">
+                </td>
+                <td>
+                    <select class="table-select" onchange="updateItemParams(${index}, 'height', this.value)">
+                        <option value="1" ${item.height === 1 ? 'selected' : ''}>L1 (Ground)</option>
+                        <option value="2" ${item.height === 2 ? 'selected' : ''}>L2 (Waist-High)</option>
+                        <option value="3" ${item.height === 3 ? 'selected' : ''}>L3 (Top Shelf)</option>
+                    </select>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function updateItemParams(index, field, value) {
+        items[index][field] = parseInt(value);
+        clearSolverState();
+        initMap();
+    }
+
+    function resequenceItemIDs() {
+        items.forEach((item, idx) => { item.id = (idx + 1).toString(); });
+    }
+
+    function clearSolverState() {
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        computedTrips = [];
+        document.getElementById('metric-time').innerText = '--';
+        document.getElementById('metric-distance').innerText = '--';
+        document.getElementById('metric-compute').innerText = '--';
+        document.getElementById('routeLog').innerText = 'State altered. Re-run optimizer...';
+        document.getElementById('btn-animate').disabled = true;
+        initMap();
+    }
+
+    function resetMap() {
+        items = [];
+        populateInventoryTable();
+        clearSolverState();
+    }
+
+    // --- CANVAS INTERACTION (CLICK / DRAG / DROP / DELETE) ---
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+
+    canvas.addEventListener('mousedown', function(evt) {
+        const mousePos = getMousePos(evt);
+        const gridPos = toGridCoords(mousePos.x, mousePos.y);
+
+        if (gridPos.x === 0 && gridPos.y === 0) return; // Ignore Depot
+
+        let hitItem = items.find(item => item.x === gridPos.x && item.y === gridPos.y);
+        if (hitItem) {
+            draggedItem = hitItem;
+            isDragging = true;
+            clearSolverState();
+        } else {
+            if (items.length >= 18) {
+                alert("Limiting active list to 18 elements to maintain stability.");
+                return;
+            }
+            items.push({ id: (items.length + 1).toString(), x: gridPos.x, y: gridPos.y, weight: 2, height: 1 });
+            resequenceItemIDs();
+            populateInventoryTable();
+            clearSolverState();
+        }
+    });
+
+    canvas.addEventListener('mousemove', function(evt) {
+        if (!isDragging || !draggedItem) return;
+        const mousePos = getMousePos(evt);
+        const gridPos = toGridCoords(mousePos.x, mousePos.y);
+
+        if (gridPos.x === 0 && gridPos.y === 0) return;
+
+        let occupied = items.find(item => item !== draggedItem && item.x === gridPos.x && item.y === gridPos.y);
+        if (!occupied) {
+            draggedItem.x = gridPos.x;
+            draggedItem.y = gridPos.y;
+            initMap();
+        }
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            draggedItem = null;
+            populateInventoryTable();
+            initMap();
+        }
+    });
+
+    canvas.addEventListener('dblclick', function(evt) {
+        const mousePos = getMousePos(evt);
+        const gridPos = toGridCoords(mousePos.x, mousePos.y);
+
+        let idx = items.findIndex(item => item.x === gridPos.x && item.y === gridPos.y);
+        if (idx !== -1) {
+            items.splice(idx, 1);
+            resequenceItemIDs();
+            populateInventoryTable();
+            clearSolverState();
+        }
+    });
+
+    // --- LOGISTICS COMPARTMENTALIZATION ENGINE (Christian Prins Split Algorithm) ---
+    // Safely partitions any sequential route of items into capacity-compliant sub-loops (CVRP optimal split)
+    function splitSequenceIntoTrips(sequence, capacity) {
+        let n = sequence.length;
+        let dp = Array(n + 1).fill(Infinity);
+        let parent = Array(n + 1).fill(-1);
+        dp[0] = 0;
+
+        for (let i = 1; i <= n; i++) {
+            let load = 0;
+            for (let j = i; j <= n; j++) {
+                let node = sequence[j - 1];
+                load += node.weight;
+                if (load > capacity) break; // Exceeds AMR capacity constraint
+
+                let subTrip = sequence.slice(i - 1, j);
+                let tripCost = getTripPerformance(subTrip).time;
+
+                if (dp[i - 1] + tripCost < dp[j]) {
+                    dp[j] = dp[i - 1] + tripCost;
+                    parent[j] = i - 1;
+                }
+            }
+        }
+
+        if (dp[n] === Infinity) return null;
+
+        let partitionedTrips = [];
+        let curr = n;
+        while (curr > 0) {
+            let p = parent[curr];
+            partitionedTrips.unshift(sequence.slice(p, curr));
+            curr = p;
+        }
+        return { trips: partitionedTrips, time: dp[n] };
+    }
+
+    // --- ALGORITHM A: NEAREST NEIGHBOR (Heuristic Split) ---
+    function solveNN_CVRP() {
+        if (!validateWeights()) return;
+        clearSolverState();
+        const startCompute = performance.now();
+
+        // 1. Generate Nearest Neighbor sequence (TSP Tour)
+        let unvisited = [...items];
+        let seq = [];
+        let current = depot;
+
+        while (unvisited.length > 0) {
+            let idx = -1;
+            let minDist = Infinity;
+            for (let i = 0; i < unvisited.length; i++) {
+                let dist = getManhattanDistance(current, unvisited[i]);
+                if (dist < minDist) {
+                    minDist = dist;
+                    idx = i;
+                }
+            }
+            seq.push(unvisited[idx]);
+            current = unvisited[idx];
+            unvisited.splice(idx, 1);
+        }
+
+        // 2. Partition sequence into CVRP loops using the Prins Split algorithm
+        const capacity = parseInt(document.getElementById('param-capacity').value);
+        let solution = splitSequenceIntoTrips(seq, capacity);
+
+        const endCompute = performance.now();
+        
+        if (solution) {
+            computedTrips = solution.trips;
+            let finalMetrics = getFleetPerformance(computedTrips);
+            updateDashboard("Nearest Neighbor Heuristic", finalMetrics.time, finalMetrics.distance, (endCompute - startCompute).toFixed(4));
+            drawFleetRoutes();
+        } else {
+            alert("Routing configuration failed.");
+        }
+    }
+
+    // --- ALGORITHM B: EXACT OPTIMAL CVRP (Backtracking Permutation Search with Prins Split) ---
+    function solveExact_CVRP() {
+        if (!validateWeights()) return;
+        
+        // Pedagogical NP-Hard Scale constraint check
+        if (items.length > 8) {
+            alert(`Exact Solver Blocked for ${items.length} items!\n\n` +
+                  `Solving exact CVRP requires mapping all ${items.length}! (${factorial(items.length).toLocaleString()}) combinations. Your browser would crash.\n\n` +
+                  `This demonstrates the scaling constraint of NP-Hard problems in logistics. Run the NN Heuristic!`);
+            return;
+        }
+
+        clearSolverState();
+        const startCompute = performance.now();
+        const capacity = parseInt(document.getElementById('param-capacity').value);
+
+        let bestTime = Infinity;
+        let bestTrips = [];
+
+        // Permute sequences and dynamically split each to find globally optimized CVRP loops
+        function permuteAndEvaluate(arr, memo = []) {
+            if (arr.length === 0) {
+                let solution = splitSequenceIntoTrips(memo, capacity);
+                if (solution && solution.time < bestTime) {
+                    bestTime = solution.time;
+                    bestTrips = solution.trips;
+                }
+                return;
+            }
+            for (let i = 0; i < arr.length; i++) {
+                let curr = arr.slice();
+                let next = curr.splice(i, 1);
+                permuteAndEvaluate(curr, memo.concat(next));
+            }
+        }
+
+        permuteAndEvaluate(items);
+        const endCompute = performance.now();
+
+        computedTrips = bestTrips;
+        let finalMetrics = getFleetPerformance(computedTrips);
+        updateDashboard("Exact Optimal (CVRP Global Search)", finalMetrics.time, finalMetrics.distance, (endCompute - startCompute).toFixed(2));
+        drawFleetRoutes();
+    }
+
+    function validateWeights() {
+        const capacity = parseInt(document.getElementById('param-capacity').value);
+        let overweightItem = items.find(item => item.weight > capacity);
+        if (overweightItem) {
+            alert(`Infeasible Solution: Item ${overweightItem.id} weighs ${overweightItem.weight}kg, which exceeds AMR Payload Capacity of ${capacity}kg! Please reduce the item's weight or increase the robot's capacity.`);
+            return false;
+        }
+        return true;
+    }
+
+    function factorial(n) {
+        return (n <= 1) ? 1 : n * factorial(n - 1);
+    }
+
+    function updateDashboard(algoName, totalTime, distance, computeTime) {
+        document.getElementById('metric-time').innerText = `${totalTime.toFixed(1)}s`;
+        document.getElementById('metric-distance').innerText = `${distance} units`;
+        document.getElementById('metric-compute').innerText = `${computeTime} ms`;
+
+        let outputHtml = `<strong>Method:</strong> ${algoName}<br>`;
+        computedTrips.forEach((trip, index) => {
+            let tripWeight = trip.reduce((sum, item) => sum + item.weight, 0);
+            outputHtml += `<span style="color: ${tripColors[index % tripColors.length]}">◆ <strong>Trip ${index + 1} (${tripWeight} kg):</strong></span> Depot → `;
+            outputHtml += trip.map(item => `Item ${item.id}`).join(' → ');
+            outputHtml += ` → Depot<br>`;
+        });
+        document.getElementById('routeLog').innerHTML = outputHtml;
+        document.getElementById('btn-animate').disabled = false;
+    }
+
+    // Static display of computed paths with distinct colors per loop
+    function drawFleetRoutes() {
+        initMap();
+        if (computedTrips.length === 0) return;
+
+        computedTrips.forEach((trip, tripIdx) => {
+            ctx.strokeStyle = tripColors[tripIdx % tripColors.length];
+            ctx.lineWidth = 3;
+            ctx.lineJoin = "round";
+            
+            let current = depot;
+            for (let i = 0; i <= trip.length; i++) {
+                let next = (i === trip.length) ? depot : trip[i];
+                let p1 = toCanvasCoords(current.x, current.y);
+                let p2 = toCanvasCoords(next.x, next.y);
+
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                if (current.x !== next.x && current.y !== next.y) {
+                    let pCorner = toCanvasCoords(next.x, current.y);
+                    ctx.lineTo(pCorner.x, pCorner.y);
+                }
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+                current = next;
+            }
+        });
+    }
+
+    // --- SYSTEM MULTI-LOOP ANIMATION ---
+    function animateCVRPRobot() {
+        if (computedTrips.length === 0) return;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+        // Build list of physical coordinate segments representing each discrete trip
+        let animatedTrips = [];
+        computedTrips.forEach(trip => {
+            let pathPoints = [];
+            let current = depot;
+            pathPoints.push({ x: current.x, y: current.y });
+            for (let i = 0; i < trip.length; i++) {
+                let next = trip[i];
+                if (current.x !== next.x && current.y !== next.y) {
+                    pathPoints.push({ x: next.x, y: current.y }); // Corridor corner
+                }
+                pathPoints.push({ x: next.x, y: next.y });
+                current = next;
+            }
+            // Return segment back to Depot
+            if (current.x !== depot.x && current.y !== depot.y) {
+                pathPoints.push({ x: depot.x, y: current.y });
+            }
+            pathPoints.push({ x: depot.x, y: depot.y });
+            animatedTrips.push(pathPoints);
+        });
+
+        let currentTripIdx = 0;
+        let pointIdx = 0;
+        let step = 0;
+        const animSpeed = 0.15; // Controls display speed
+
+        // Tracks drawn historical loops so they remain rendered as the robot starts subsequent trips
+        let completedTrails = [];
+
+        function renderFrame() {
+            let activeTripPoints = animatedTrips[currentTripIdx];
+            if (pointIdx < activeTripPoints.length - 1) {
+                let startPt = activeTripPoints[pointIdx];
+                let endPt = activeTripPoints[pointIdx + 1];
+
+                step += animSpeed;
+                let robotPos = { x: startPt.x, y: startPt.y };
+                if (step >= 1) {
+                    step = 0;
+                    pointIdx++;
+                    robotPos = { x: endPt.x, y: endPt.y };
+                } else {
+                    robotPos.x = startPt.x + (endPt.x - startPt.x) * step;
+                    robotPos.y = startPt.y + (endPt.y - startPt.y) * step;
+                }
+
+                initMap();
+
+                // Draw completed loops
+                completedTrails.forEach(trail => {
+                    ctx.strokeStyle = trail.color;
+                    ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.beginPath();
+                    let start = toCanvasCoords(trail.points[0].x, trail.points[0].y);
+                    ctx.moveTo(start.x, start.y);
+                    for (let p of trail.points) {
+                        let c = toCanvasCoords(p.x, p.y); ctx.lineTo(c.x, c.y);
+                    }
+                    ctx.stroke();
+                });
+
+                // Draw current growing active trail
+                ctx.strokeStyle = tripColors[currentTripIdx % tripColors.length];
+                ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.beginPath();
+                let start = toCanvasCoords(activeTripPoints[0].x, activeTripPoints[0].y);
+                ctx.moveTo(start.x, start.y);
+                for (let i = 1; i <= pointIdx; i++) {
+                    let c = toCanvasCoords(activeTripPoints[i].x, activeTripPoints[i].y); ctx.lineTo(c.x, c.y);
+                }
+                let currentRobotCoords = toCanvasCoords(robotPos.x, robotPos.y);
+                ctx.lineTo(currentRobotCoords.x, currentRobotCoords.y);
+                ctx.stroke();
+
+                // Draw AMR icon (Amber circle)
+                ctx.fillStyle = '#f59e0b';
+                ctx.strokeStyle = '#d97706';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(currentRobotCoords.x, currentRobotCoords.y, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath(); ctx.arc(currentRobotCoords.x, currentRobotCoords.y, 4, 0, Math.PI * 2); ctx.fill();
+
+                animationFrameId = requestAnimationFrame(renderFrame);
+            } else {
+                // Trip loop complete, return to depot state and execute offloading pause
+                completedTrails.push({
+                    points: activeTripPoints,
+                    color: tripColors[currentTripIdx % tripColors.length]
+                });
+                currentTripIdx++;
+                if (currentTripIdx < animatedTrips.length) {
+                    pointIdx = 0;
+                    step = 0;
+                    // Offload delay simulation frame (simulates unstacking sequence at the depot)
+                    setTimeout(() => {
+                        animationFrameId = requestAnimationFrame(renderFrame);
+                    }, 500); 
+                } else {
+                    drawFleetRoutes();
+                }
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(renderFrame);
+    }
+
+    // Initial setup
+    initMap();
+    populateInventoryTable();
+</script>
+
+</body>
+</html>
